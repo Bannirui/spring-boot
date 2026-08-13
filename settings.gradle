@@ -35,6 +35,7 @@ pluginManagement {
 		}
 	}
 	includeBuild("gradle/plugins")
+	includeBuild("/home/dingrui/MyDev/java/spring-framework")
 }
 
 plugins {
