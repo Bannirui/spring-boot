@@ -53,6 +53,7 @@ class SpringApplicationRunListeners {
 	}
 
 	void starting(ConfigurableBootstrapContext bootstrapContext, @Nullable Class<?> mainApplicationClass) {
+		// 执行EventPublishingRunListener的starting方法
 		doWithListeners("spring.boot.application.starting", (listener) -> listener.starting(bootstrapContext),
 				(step) -> {
 					if (mainApplicationClass != null) {
@@ -117,9 +118,16 @@ class SpringApplicationRunListeners {
 		doWithListeners(stepName, listenerAction, null);
 	}
 
+	/**
+	 * 用EventPublishingRunListener发布spring boot的生命周期事件
+	 * @param stepName
+	 * @param listenerAction 函数式编程 就是一个函数对象 EventPublishingRunListener对象会实现所有的方法
+	 * @param stepAction
+	 */
 	private void doWithListeners(String stepName, Consumer<SpringApplicationRunListener> listenerAction,
 			@Nullable Consumer<StartupStep> stepAction) {
 		StartupStep step = this.applicationStartup.start(stepName);
+		// listeners里面缓存了EventPublishingRunListener对象 只要执行它的的listenerAction这个方法就行
 		this.listeners.forEach(listenerAction);
 		if (stepAction != null) {
 			stepAction.accept(step);

@@ -228,6 +228,16 @@ public class SpringApplication {
 
 	private List<ApplicationContextInitializer<?>> initializers = new ArrayList<>();
 
+	/**
+	 * 缓存了ApplicationListener
+	 * 为什么springboot也要自己缓存一套呢
+	 * 因为springframework的事件发布体系只在执行完context的refresh后才会有 那么在refresh之前怎么进行事件通知呢
+	 * 所以springboot必须要建立一个机制用来发布在refresh之前的早期事件 包括
+	 *   - ApplicationStartingEvent
+	 *   - ApplicationEnvironmentPreparedEvent
+	 *   - ApplicationContextInitializedEvent
+	 *   - ApplicationPreparedEvent
+	 */
 	private List<ApplicationListener<?>> listeners = new ArrayList<>();
 
 	private @Nullable Map<String, Object> defaultProperties;
@@ -309,29 +319,42 @@ public class SpringApplication {
 		DefaultBootstrapContext bootstrapContext = createBootstrapContext();
 		ConfigurableApplicationContext context = null;
 		configureHeadlessProperty();
+		// 会拿到EventPublishingRunListener 配置在了spring.factories里面 启动时候会加载进来
 		SpringApplicationRunListeners listeners = getRunListeners(args);
+		// 1 spring boot的事件机制发布ApplicationStartingEvent转到spring framework
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
 		try {
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+			// 2 spring boot的事件机制发布ApplicationEnvironmentPreparedEvent转到spring framework
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
 			Banner printedBanner = printBanner(environment);
+			// 创建spring的容器 创建好后才拥有spring的事件发布机制 在此之前的时间发布靠的是spring boot实现的另一套事件机制
 			context = createApplicationContext();
 			context.setApplicationStartup(this.applicationStartup);
+			/**
+			 * spring boot会把很多东西给spring framewor
+			 * 3 用spring boot的事件机制发布ApplicationContextInitializedEvent转到spring framework
+			 * 4 用spring boot的事件机制发布ApplicationPreparedEvent转到spring framework
+			 */
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
+			// 进入到spring framework的refresh 执行完之后会拥有spring的事件发布机制 两套机制共存
 			refreshContext(context);
 			afterRefresh(context, applicationArguments);
 			Duration timeTakenToStarted = startup.started();
 			if (this.properties.isLogStartupInfo()) {
 				new StartupInfoLogger(this.mainApplicationClass, environment).logStarted(getApplicationLog(), startup);
 			}
+			// 5 用spring boot的事件机制发布ApplicationStartedEvent转到spring framework
 			listeners.started(context, timeTakenToStarted);
 			callRunners(context, applicationArguments);
 		}
 		catch (Throwable ex) {
+			// 6 ApplicationFailedEvent属于特殊 跟正常的生命周期事件不一样处理
 			throw handleRunFailure(context, ex, listeners);
 		}
 		try {
 			if (context.isRunning()) {
+				// 7 用spring boot的事件机制发布ApplicationReadyEvent转到spring framework
 				listeners.ready(context, startup.ready());
 			}
 		}
@@ -391,6 +414,7 @@ public class SpringApplication {
 			}
 		}
 		applyInitializers(context);
+		// 发布ApplicationContextInitializedEvent事件
 		listeners.contextPrepared(context);
 		bootstrapContext.close(context);
 		if (this.properties.isLogStartupInfo()) {
@@ -415,6 +439,7 @@ public class SpringApplication {
 			Assert.state(!ObjectUtils.isEmpty(sources), "No sources defined");
 			load(context, sources.toArray(new Object[0]));
 		}
+		// 发布ApplicationPreparedEvent事件
 		listeners.contextLoaded(context);
 	}
 

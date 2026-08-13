@@ -60,9 +60,14 @@ class EventPublishingRunListener implements SpringApplicationRunListener, Ordere
 
 	private final SimpleApplicationEventMulticaster initialMulticaster;
 
+	/**
+	 * 这个类配置在了spring.factories里面了
+	 * 为什么需要把SpringApplication给过来 重点是要为了application里面的listeners缓存了EventPublishingRunListener
+	 */
 	EventPublishingRunListener(SpringApplication application, String[] args) {
 		this.application = application;
 		this.args = args;
+		// 这个是核心 负责发布spring boot的生命周期事件
 		this.initialMulticaster = new SimpleApplicationEventMulticaster();
 	}
 
@@ -134,6 +139,7 @@ class EventPublishingRunListener implements SpringApplicationRunListener, Ordere
 
 	private void multicastInitialEvent(ApplicationEvent event) {
 		refreshApplicationListeners();
+		// 通过SimpleApplicationEventMulticaster回调到springframework里面的ApplicationListener的onApplicationEvent方法
 		this.initialMulticaster.multicastEvent(event);
 	}
 
