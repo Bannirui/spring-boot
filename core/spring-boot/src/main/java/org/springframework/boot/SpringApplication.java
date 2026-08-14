@@ -344,10 +344,10 @@ public class SpringApplication {
 			context.setApplicationStartup(this.applicationStartup);
 			/**
 			 * spring boot会把很多东西给AnnotationConfigApplicationContext
-			 * 3 用spring boot的事件机制发布ApplicationContextInitializedEvent转到spring framework
-			 * 4 用spring boot的事件机制发布ApplicationPreparedEvent转到spring framework
-			 *
-			 * 往AnnotationConfigApplicationContext的beanFactory的1级缓存放了点东西
+			 *   - 往AnnotationConfigApplicationContext的beanFactory的1级缓存放了点东西
+			 *   - 把启动类的BeanDefinition缓存到了beanFactory的beanDefinitionMap里面 refresh要用
+			 *   - 用spring boot的事件机制发布ApplicationContextInitializedEvent转到spring framework
+			 *   - 用spring boot的事件机制发布ApplicationPreparedEvent转到spring framework
 			 */
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
 			// 进入到spring framework的refresh 执行完之后会拥有spring的事件发布机制 两套机制共存
@@ -414,7 +414,11 @@ public class SpringApplication {
 	}
 
 	/**
-	 *
+	 * spring boot会把很多东西给AnnotationConfigApplicationContext
+	 *   - 往AnnotationConfigApplicationContext的beanFactory的1级缓存放了点东西
+	 *   - 把启动类的BeanDefinition缓存到了beanFactory的beanDefinitionMap里面 refresh要用
+	 *   - 用spring boot的事件机制发布ApplicationContextInitializedEvent转到spring framework
+	 *   - 用spring boot的事件机制发布ApplicationPreparedEvent转到spring framework
 	 * @param bootstrapContext
 	 * @param context 构造的AnnotationConfigApplicationContext 里面只有reader跟scanner和DefaultListableBeanFactory
 	 * @param environment spring boot自己构造的environment
@@ -457,6 +461,7 @@ public class SpringApplication {
 		}
 		context.addBeanFactoryPostProcessor(new PropertySourceOrderingBeanFactoryPostProcessor(context));
 		if (!AotDetector.useGeneratedArtifacts()) {
+			// 把启动类的BeanDefinition缓存到了BeanFactory的beanDefinitionMap里面了 在refresh要用
 			// Load the sources
 			Set<Object> sources = getAllSources();
 			Assert.state(!ObjectUtils.isEmpty(sources), "No sources defined");
