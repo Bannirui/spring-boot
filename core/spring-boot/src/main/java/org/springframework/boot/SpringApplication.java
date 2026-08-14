@@ -208,6 +208,7 @@ public class SpringApplication {
 
 	private static final ThreadLocal<SpringApplicationHook> applicationHook = new ThreadLocal<>();
 
+	// 启动类
 	private final Set<Class<?>> primarySources;
 
 	private @Nullable Class<?> mainApplicationClass;
@@ -218,6 +219,7 @@ public class SpringApplication {
 
 	private @Nullable Banner banner;
 
+	// 启动类的classLoader是谁
 	private @Nullable ResourceLoader resourceLoader;
 
 	private @Nullable BeanNameGenerator beanNameGenerator;
@@ -226,22 +228,17 @@ public class SpringApplication {
 
 	private boolean headless = true;
 
+	// spring.factories配置的ApplicationContextInitializer
 	private List<ApplicationContextInitializer<?>> initializers = new ArrayList<>();
 
 	/**
-	 * 缓存了ApplicationListener
-	 * 为什么springboot也要自己缓存一套呢
-	 * 因为springframework的事件发布体系只在执行完context的refresh后才会有 那么在refresh之前怎么进行事件通知呢
-	 * 所以springboot必须要建立一个机制用来发布在refresh之前的早期事件 包括
-	 *   - ApplicationStartingEvent
-	 *   - ApplicationEnvironmentPreparedEvent
-	 *   - ApplicationContextInitializedEvent
-	 *   - ApplicationPreparedEvent
+	 * spring.factories配置的ApplicationListener
 	 */
 	private List<ApplicationListener<?>> listeners = new ArrayList<>();
 
 	private @Nullable Map<String, Object> defaultProperties;
 
+	// 没有在spring.factories里面配置BootstrapRegistryInitializer
 	private final List<BootstrapRegistryInitializer> bootstrapRegistryInitializers;
 
 	private Set<String> additionalProfiles = Collections.emptySet();
@@ -284,11 +281,15 @@ public class SpringApplication {
 	public SpringApplication(@Nullable ResourceLoader resourceLoader, Class<?>... primarySources) {
 		this.resourceLoader = resourceLoader;
 		Assert.notNull(primarySources, "'primarySources' must not be null");
+		// 启动类
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
 		this.properties.setWebApplicationType(WebApplicationType.deduce());
+		// spring.factories 没有配置
 		this.bootstrapRegistryInitializers = new ArrayList<>(
 				getSpringFactoriesInstances(BootstrapRegistryInitializer.class));
+		// spring.factories 找到ApplicationContextInitializer的实现缓存到initializers
 		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
+		// spring.factories 找到ApplicationListener的实现缓存到listeners
 		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
 		this.mainApplicationClass = deduceMainApplicationClass();
 	}
@@ -489,6 +490,7 @@ public class SpringApplication {
 		return new SpringApplicationRunListeners(logger, listeners, this.applicationStartup);
 	}
 
+	// 从spring.factories里面找接口有哪些实现
 	private <T> List<T> getSpringFactoriesInstances(Class<T> type) {
 		return getSpringFactoriesInstances(type, null);
 	}
