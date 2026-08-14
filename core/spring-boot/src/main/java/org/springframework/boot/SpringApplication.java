@@ -320,7 +320,7 @@ public class SpringApplication {
 		DefaultBootstrapContext bootstrapContext = createBootstrapContext();
 		ConfigurableApplicationContext context = null;
 		configureHeadlessProperty();
-		// 会拿到EventPublishingRunListener 配置在了spring.factories里面 启动时候会加载进来
+		// 配置在spring.factories里面的EventPublishingRunListener 下面的spring boot生命周期事件通知就全靠它了
 		SpringApplicationRunListeners listeners = getRunListeners(args);
 		// 1 spring boot的事件机制发布ApplicationStartingEvent转到spring framework
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
@@ -330,12 +330,24 @@ public class SpringApplication {
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
 			Banner printedBanner = printBanner(environment);
 			// 创建spring的容器 创建好后才拥有spring的事件发布机制 在此之前的时间发布靠的是spring boot实现的另一套事件机制
+			/**
+			 * 构造spring的context
+			 * 有两种方式
+			 *   - 1 在spring.factories配置文件里面指定ApplicationContextFactory的实现
+			 *   - 2 没有配置文件里面显式指定就会用默认的AnnotationConfigApplicationContext
+			 * 这个时候构造出来的context很干净 只有
+			 *   - reader
+			 *   - scanner
+			 *   - DefaultListableBeanFactory的beanFactory对象
+			 */
 			context = createApplicationContext();
 			context.setApplicationStartup(this.applicationStartup);
 			/**
-			 * spring boot会把很多东西给spring framewor
+			 * spring boot会把很多东西给AnnotationConfigApplicationContext
 			 * 3 用spring boot的事件机制发布ApplicationContextInitializedEvent转到spring framework
 			 * 4 用spring boot的事件机制发布ApplicationPreparedEvent转到spring framework
+			 *
+			 * 往AnnotationConfigApplicationContext的beanFactory的1级缓存放了点东西
 			 */
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
 			// 进入到spring framework的refresh 执行完之后会拥有spring的事件发布机制 两套机制共存
@@ -401,12 +413,22 @@ public class SpringApplication {
 		return (environmentType != null) ? environmentType : ApplicationEnvironment.class;
 	}
 
+	/**
+	 *
+	 * @param bootstrapContext
+	 * @param context 构造的AnnotationConfigApplicationContext 里面只有reader跟scanner和DefaultListableBeanFactory
+	 * @param environment spring boot自己构造的environment
+	 * @param listeners
+	 * @param applicationArguments
+	 * @param printedBanner
+	 */
 	private void prepareContext(DefaultBootstrapContext bootstrapContext, ConfigurableApplicationContext context,
 			ConfigurableEnvironment environment, SpringApplicationRunListeners listeners,
 			ApplicationArguments applicationArguments, @Nullable Banner printedBanner) {
 		context.setEnvironment(environment);
 		postProcessApplicationContext(context);
 		addAotGeneratedInitializerIfNecessary(this.initializers);
+		// 拿到DefaultListableBeanFactory对象 它是AbstractAutowireCapableBeanFactory的派生
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
 		if (beanFactory instanceof AbstractAutowireCapableBeanFactory autowireCapableBeanFactory) {
 			autowireCapableBeanFactory.setAllowCircularReferences(this.properties.isAllowCircularReferences());
@@ -476,9 +498,11 @@ public class SpringApplication {
 				System.getProperty(SYSTEM_PROPERTY_JAVA_AWT_HEADLESS, Boolean.toString(this.headless)));
 	}
 
+	// spring boot的生命周期事件通知依赖的是配置在spring.factories里面的EventPublishingRunListener
 	private SpringApplicationRunListeners getRunListeners(String[] args) {
 		ArgumentResolver argumentResolver = ArgumentResolver.of(SpringApplication.class, this);
 		argumentResolver = argumentResolver.and(String[].class, args);
+		// spring.factories配置的SpringApplicationRunListener
 		List<SpringApplicationRunListener> listeners = getSpringFactoriesInstances(SpringApplicationRunListener.class,
 				argumentResolver);
 		SpringApplicationHook hook = applicationHook.get();
@@ -617,6 +641,7 @@ public class SpringApplication {
 	 */
 	protected void postProcessApplicationContext(ConfigurableApplicationContext context) {
 		if (this.beanNameGenerator != null) {
+			// 放到BeanFactory的1级缓存
 			context.getBeanFactory()
 				.registerSingleton(AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR, this.beanNameGenerator);
 		}

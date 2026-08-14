@@ -66,6 +66,7 @@ class DefaultApplicationContextFactory implements ApplicationContextFactory {
 		}
 	}
 
+	// 没有spring.factories里面配置ApplicationContextFactory就用这个方法构造一个context
 	private ConfigurableApplicationContext createDefaultApplicationContext() {
 		if (!AotDetector.useGeneratedArtifacts()) {
 			return new AnnotationConfigApplicationContext();
